@@ -4,61 +4,24 @@ from scipy import linalg
 
 n = 3
 
-#For the sphere x = [theta, phi]
-def squaredNorm(sigma, v):
-    return metric(sigma, v, v)
+corresp = {}
 
-def matrixIndicestoBasisIndex(i,j):
-    if (i>=j):
-        return i*n+j
-    else:
-        return matrixIndicestoBasisIndex(j,i)
-
-def basisIndexToMatrixIndices(a):
-    return a/n,a%n
-
-for i in xrange(n*(n+1)/2):
-    print(i,basisIndexToMatrixIndices(i))
-
-for a in xrange(n):
-    for b in xrange(n):
-        print(a, b, matrixIndicestoBasisIndex(a,b))
+#A basis of the symmetric matrices (could be written more generically...)
+E0 = np.array([[1,0,0],[0,0,0],[0,0,0]])
+E1 = np.array([[0,0,0],[0,1,0],[0,0,0]])
+E2 = np.array([[0,0,0],[0,0,0],[0,0,1]])
+E3 = np.array([[0,1,0],[1,0,0],[0,0,0]])
+E4 = np.array([[0,0,1],[0,0,0],[1,0,0]])
+E5 = np.array([[0,0,0],[0,0,1],[0,1,0]])
+E = [E0,E1,E2,E3,E4,E5]
 
 
-def metric(sigma, v, w):
-    sqrtSigma = linalg.sqrtm(sigma)
-    inverseSigma = linalg.inv(sigma)
-    inverseSqrtSigma = linalg.inv(sqrtSigma)
-    otherInverseSqrtSigma = linalg.sqrtm(inverseSigma)
-    assert (np.linalg.norm(inverseSqrtSigma - otherInverseSqrtSigma)<1e-8), "Inverses differ a lot"
-    # print("difference of the two inverses : ", np.linalg.norm(inverseSqrtSigma - otherInverseSqrtSigma))
-    fac1 = np.matmul(inverseSqrtSigma, np.transpose(v))
-    fac2 = np.matmul(inverseSigma, w)
-    fac3 = np.matmul(fac1, fac2)
-    fac4 = np.matmul(fac3,inverseSqrtSigma)
-    out = np.trace(fac4)
-    return out
-
-def trueGeodesic(p0, v0):
-    sqrtP0 = linalg.sqrtm(p0)
-    sqrtinverseP0 = linalg.sqrtm(linalg.inv(p0))
-    ex = linalg.expm(np.matmul(np.matmul(sqrtinverseP0, v0),sqrtinverseP0))
-    print(ex)
-    out = np.matmul(np.matmul(sqrtP0, ex), sqrtP0)
-    return out
-
-def trueParallelTransport(p0, v0, w):
-    invP0 = linalg.inv(p0)
-    ex1 = linalg.expm(0.5 * np.matmul(v0,invP0))
-    ex2 = linalg.expm(0.5 * np.matmul(invP0, v0))
-    out = np.matmul(np.matmul(ex1, w), ex2)
-    return out
+corresp = [(0,0), (1,1), (2,2), (0,1), (0,2), (1,2)]
 
 def generateRandomInvertible():
     #We take the exponential of a random matrix.
     B = np.random.rand(n,n)
     expB = linalg.expm(B)
-    print(np.linalg.det(expB))
     assert (abs(np.linalg.det(expB))>1e-10),"Generated a non invertible matrix ! !"
     return expB
 
@@ -74,59 +37,82 @@ def generateRandomSymmetric():
                 m[i,j] = m[j,i]
     return m
 
-def co_vector_from_vector(x, w):
-    dimSym = n*(n+1)/2 #This is the dimension of Sym(n)
-    #We need to evaluate the metric at x first i.e. the g(E^i,E^j) for all i,j
+def flatten(x):
+    a,b = x.shape
+    assert (a==n),"Wrong dimension"
+    assert (b==n),"Wrong dimension"
+    dimSym = n*(n+1)/2
+    xFlattened = np.zeros(dimSym)
+    for i,(a,b) in enumerate(corresp):
+        xFlattened[i] = x[a,b]
+    return xFlattened
+
+def reconstruct(x):
+    assert (len(x) == n*(n+1)/2), "Wrong dimension of flattened array"
+    xReconstructed = np.zeros((n,n))
+    for i,(a,b) in enumerate(corresp):
+        xReconstructed[a,b] = x[i]
+        xReconstructed[b,a] = x[i]
+    return xReconstructed
+
+def metric(sigmaFlat, vFlat, wFlat):
+    sigma = reconstruct(sigmaFlat)
+    v = reconstruct(vFlat)
+    w = reconstruct(wFlat)
+    assert(np.linalg.det(sigma)>1e-10), "Matrix not invertible"
+    sqrtSigma = linalg.sqrtm(sigma)
+    inverseSigma = linalg.inv(sigma)
+    inverseSqrtSigma = linalg.inv(sqrtSigma)
+    otherInverseSqrtSigma = linalg.sqrtm(inverseSigma)
+    assert (np.linalg.norm(inverseSqrtSigma - otherInverseSqrtSigma)<1e-6), "Inverses differ a lot"
+    fac1 = np.matmul(inverseSqrtSigma, np.transpose(v))
+    fac2 = np.matmul(inverseSigma, w)
+    fac3 = np.matmul(fac1, fac2)
+    fac4 = np.matmul(fac3,inverseSqrtSigma)
+    out = np.trace(fac4)
+    return out
+
+def trueGeodesic(p0, v0):
+    sqrtP0 = linalg.sqrtm(p0)
+    sqrtinverseP0 = linalg.sqrtm(linalg.inv(p0))
+    ex = linalg.expm(np.matmul(np.matmul(sqrtinverseP0, v0),sqrtinverseP0))
+    out = np.matmul(np.matmul(sqrtP0, ex), sqrtP0)
+    return out
+
+def trueParallelTransport(p0, v0, w):
+    invP0 = linalg.inv(p0)
+    ex1 = linalg.expm(0.5 * np.matmul(v0,invP0))
+    ex2 = linalg.expm(0.5 * np.matmul(invP0, v0))
+    out = np.matmul(np.matmul(ex1, w), ex2)
+    return out
+
+def co_vector_from_vector(xFlat, wFlat):
+    dimSym = n*(n+1)/2
+    #We evaluate the metric first:
     g = np.zeros((dimSym, dimSym))
     for i in xrange(dimSym):
         for j in xrange(dimSym):
-            #This is our choice of ordering :
-            a1, b1 = i/n, i%n + i/n-1
-            print(a1,b1,i)
-            a2, b2 = j/n, j%n + j/n-1
-            print(a2,b2,j)
-            #This is the ith element of the basis :
-            E1 = np.zeros((n,n))
-            E1[a1,b1] += 0.5
-            #This is the jth element of the basis :
-            E2 = np.zeros((n,n))
-            E2[a2,b2] += 0.5
-            g[i,j] = metric(x, E1, E2)
-    #Now that we have the metric, we compute its inverse.
-    inverseG = linalg.inv(g)
-    #We use the inverse to get the co-vector.
-    #First we flatten w :
-    wFlattened = np.zeros(dimSym)
+            g[i,j] = metric(xFlat, flatten(E[i]), flatten(E[j]))
+    cowFlat = np.matmul(g,wFlat)
+    return cowFlat
+
+def vector_from_co_vector(xFlat, alphaFlat):
+    dimSym = n*(n+1)/2
+    #We evaluate the metric first:
+    g = np.zeros((dimSym, dimSym))
     for i in xrange(dimSym):
-        a, b = i/n, i%n+i/n-1
-        if (i!=j):
-            wFlattened[i] = w[a,b] * 2
-        else:
-            wFlattened[i] = w[a,b]
-    #Compute the co-vector in this basis
-    coWFlattened = np.matmul(inverseG, wFlattened)
-    #Build the corresponding matrix
-    coW = np.zeros((n,n))
-    for i in xrange(len(coWFlattened)):
-        a, b = i/n, i%n+i/n
-        print(i,a,b)
-        coW[a,b] += coWFlattened[i]
-    return coW
-
-
-
-def vector_from_co_vector(x, alpha):
-    inversemetric = [[1., 0.],[0., 1./np.sin(x[0])**2]]
-    return np.matmul(inversemetric, alpha)
+        for j in xrange(dimSym):
+            g[i,j] = metric(x, E[i], E[j])
+    inverseG = linalg.inv(g)
+    alphaFlat = flatten(alpha)
+    # print(alphaFlat)
+    wFlat = np.matmul(inverseG, alphaFlat)
+    return wFlat
 
 def hamiltonian_equation(x, alpha):
-  if (abs(np.sin(x[0])) < 1e-20):
-    print("error")
-    raise ValueError("Cannot handle the poles of the sphere")
-  Fx = np.array([alpha[0], alpha[1]/np.sin(x[0])**2]) #this is g_{ab} alpha^b
-  Falpha = np.array([np.cos(x[0])/np.sin(x[0])**3. * alpha[1]**2., 0.])
-  return Fx, Falpha
+  pass
 
+#Takes vectors as input, expressed in the E basis.
 def parallel_transport(x, alpha, w, number_of_time_steps):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
@@ -140,12 +126,13 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
-    initialNorm = np.sqrt(norm(x,w))
+    initialNorm = np.sqrt(metric(x,w,w))
     initialCrossProductWithVelocity = metric(x,v,w)
     RK_Steps = [0.5, 1]
     time  = 0.
     print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
-
+    print "InitialNorm :", initialNorm
+    print "initial cross product with velocity :", initialCrossProductWithVelocity
     for k in range(number_of_time_steps):
         time = time + delta
         xcurr = xtraj[k]
@@ -173,11 +160,7 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
                 alphaPerturbed = alphaPk + step * delta * Falpha
             #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-            # print(i,Jacobi)
-        # print(Jacobi / (epsilon * delta))
         pwtraj[k+1] = Jacobi / (epsilon * delta)
-        print(metric(xcurr, vector_from_co_vector(xcurr, alphacurr), pwtraj[k+1]))
-        # pwtraj[k+1] = pwtraj[k+1] * initialNorm / np.sqrt(norm(xtraj[k+1], pwtraj[k+1]))
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -185,21 +168,23 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
 
 p0 = generateRandomSPD()
 v0 = generateRandomSymmetric()
-# v0 = np.zeros((n,n))
 w = generateRandomSymmetric()
 
-
-alpha = co_vector_from_vector(p0, v0)
-print(alpha)
-
-#True geodesic and parallel transport :
-pExact = trueGeodesic(p0, v0)
-wExact = trueParallelTransport(p0, v0, w)
+#Get the flat versions
+p0Flat = flatten(p0)
+v0Flat = flatten(v0)
+wFlat = flatten(w)
+alphaFlat = co_vector_from_vector(p0Flat, v0Flat)
 
 
+xtraj, alphatraj, pwtraj = parallel_transport(v0Flat, p0Flat, wFlat, 100)
 
-print("p0 :", p0)
-print("v0 :", v0)
-print("w :", w)
-print("pExact :", pExact)
-print("wExact :", wExact)
+
+
+
+
+# print("p0 :", p0)
+# print("v0 :", v0)
+# print("w :", w)
+# print("pExact :", pExact)
+# print("wExact :", wExact)
