@@ -49,6 +49,19 @@ def isPositiveDefinite(m):
             return False
     return True,w
 
+def plotMatrix(m):
+    assert isPositiveDefinite(m), "Can't plot a non spd matrix"
+    w,x = np.linalg.eig(m)
+
+    r = 1
+    pi = np.pi
+    cos = np.cos
+    sin = np.sin
+    phi, theta = np.mgrid[0.0:pi:50j, 0.0:2.0*pi:50j]
+    x = r*sin(phi)*cos(theta)
+    y = r*sin(phi)*sin(theta)
+    z = r*cos(phi)
+
 def generateRandomInvertible():
     #We take the exponential of a random matrix.
     B = np.random.rand(n,n)
@@ -131,12 +144,14 @@ def gradientInverseMetric(k, xMat, xMatInverse, g, inverseMetric):
     return kInverseMetricGradient
 
 def hamiltonian_equation(xFlat, alphaFlat, g, inverseG):
+    assert (np.linalg.norm(np.matmul(g,inverseG) - np.eye(6))<1e-6), "Not the right inverse"
     xMat = reconstruct(xFlat)
     xMatInverse = linalg.inv(xMat)
     det = np.linalg.det(g)
     Fx = np.matmul(inverseG, alphaFlat)
     Falpha = np.zeros(dimSym)
     for k in xrange(dimSym):
+        #This is the derivative of the inverse of the metric with respect to the k-th coordinate.
         aux = np.matmul(gradientInverseMetric(k, xMat, xMatInverse, g, inverseG), alphaFlat)
         Falpha[k] = - 0.5 * np.dot(alphaFlat, aux)
     return Fx, Falpha
@@ -162,8 +177,17 @@ def checkGradient():
 def checkAnalyticalGeodesic(x0, v0):
     epsilon = 1e-6
     x1 = trueGeodesic(x0, v0, epsilon)
+    x2 = trueGeodesic(x0,v0, 2*epsilon)
     v1 = (x1-x0)/epsilon
-    print "Initial velocity computed with finite difference scheme from analytical sol : ", v1
+    v2 = (x2-x1)/epsilon
+    g = getMetricMatrix(flatten(x0))
+    alpha1 = co_vector_from_vector(flatten(x0), flatten(v1), g)
+    g = getMetricMatrix(flatten(x1))
+    alpha2 = co_vector_from_vector(flatten(x1), flatten(v2), g)
+    alphadot = (alpha2-alpha1)/epsilon
+    # _,Falpha = hamiltonian_equation(x0, )
+
+
 
 hamilts = []
 
@@ -195,23 +219,24 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
             print "The metric does not look invertible :", det
         invg = linalg.inv(g)
         velocity = vector_from_co_vector(xcurr, alphacurr, g)
-        if (k % 20 == 0):
-            print ""
-            print "step :",k, "squared norm : ", metric(xcurr, pwtraj[k], pwtraj[k]), "wcurr :", pwtraj[k]
-            print "Iteration : ", k
-            print "Hamiltonian value :", 0.5 * np.dot(alphacurr, np.matmul(invg, alphacurr))
-            print "Velocity norm :", metric(xcurr, velocity, velocity)
-            print "Scalar product velocity|transported : ", metric(xcurr, pwtraj[k], velocity)
+        # if (k % 20 == 0):
+            # print ""
+            # print "step :",k, "squared norm : ", metric(xcurr, pwtraj[k], pwtraj[k]), "wcurr :", pwtraj[k]
+            # print "Iteration : ", k
+            # print "Hamiltonian value :", 0.5 * np.dot(alphacurr, np.matmul(invg, alphacurr))
+            # print "Velocity norm :", metric(xcurr, velocity, velocity)
+            # print "Scalar product velocity|transported : ", metric(xcurr, pwtraj[k], velocity)
         b, eigs = isPositiveDefinite(reconstruct(xcurr))
         if not(b):
             print "Matrix is not positive definite ! :", eigs
         hamilts.append(0.5 * np.dot(alphacurr, np.matmul(invg, alphacurr)))
         #Compute the position of the next point on the geodesic
-        for i,step in enumerate(RK_Steps):
-            Fx, Falpha = hamiltonian_equation(xcurr, alphacurr, g, invg)
+        for step in RK_Steps:
+            met = getMetricMatrix(xcurr)
+            metInverse = linalg.inv(met)
+            Fx, Falpha = hamiltonian_equation(xcurr, alphacurr, met, metInverse)
             xcurr = xtraj[k] + step * delta * Fx
             alphacurr = alphatraj[k] + step * delta * Falpha
-
         #Co-vector of w_k : g^{ab} w_b
         betacurr = co_vector_from_vector(xtraj[k], pwtraj[k], g)
         perturbations = [1,-1]
@@ -223,7 +248,9 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
             alphaPerturbed = alphaPk
             xPerturbed = xtraj[k]
             for step in RK_Steps:
-                Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed, g, invg)
+                met = getMetricMatrix(xPerturbed)
+                metInverse = linalg.inv(met)
+                Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed, met, metInverse)
                 xPerturbed = xtraj[k] + step * delta * Fx
                 alphaPerturbed = alphaPk + step * delta * Falpha
             #Update the estimate
@@ -240,17 +267,9 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
     return xtraj, alphatraj, pwtraj
 
 
-checkGradient()
-#
-x0 = generateRandomSPD()
+x0 = np.eye(3)
+v0 = np.array([[1,0,0],[0,0,0],[0,0,0]])
 w = generateRandomSymmetric()
-v0 = generateRandomSymmetric()
-assert isPositiveDefinite(x0)
-
-print "Initial point : ", x0
-print "Initial velocity : ", v0
-
-checkAnalyticalGeodesic(x0, v0)
 
 
 
@@ -258,21 +277,30 @@ checkAnalyticalGeodesic(x0, v0)
 x0Flat = flatten(x0)
 v0Flat = flatten(v0)
 wFlat = flatten(w)
+
+
 g = getMetricMatrix(x0Flat)
-alphaFlat = co_vector_from_vector(x0Flat, v0Flat, g)
+alpha = co_vector_from_vector(x0Flat, v0Flat, g)
+
+assert isPositiveDefinite(x0)
+print "Initial point : ", x0
+print "Initial velocity : ", v0Flat
+
 
 pFinal = trueGeodesic(x0, v0, 1.)
-pFinal2 = trueGeodesic(x0, 2*v0, 0.5)
 wFinal = trueParallelTransport(x0, v0, w)
 
-xtraj, alphatraj, pwtraj = parallel_transport(x0Flat, v0Flat, wFlat, 200)
+for i in xrange(1,3):
+    xtraj, alphatraj, pwtraj = parallel_transport(x0Flat, alpha, wFlat, 100*i)
 
 
-print "Final point estimation : ", reconstruct(xtraj[-1])
-print "Analytic point estimation : ", pFinal
-print "Final transported vector estimation : ", reconstruct(pwtraj[-1])
-print "Analytic Estimation : ", wFinal
+    print "Final point estimation :\n ", reconstruct(xtraj[-1])
+    print "Analytic point estimation :\n ", pFinal
+    print "Final transported vector estimation :\n ", reconstruct(pwtraj[-1])
+    print "Analytic Estimation : \n", wFinal
+    print "L2 error :", np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))
 
 
-plt.plot(hamilts)
-plt.show()
+
+    # plt.plot(hamilts)
+    # plt.show()
