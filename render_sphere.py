@@ -4,6 +4,13 @@ from matplotlib import cm, colors
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 
+from plotly import __version__
+import plotly.plotly as py
+import plotly.graph_objs as go
+from plotly.offline import download_plotlyjs, plot, iplot
+from plotly.graph_objs import Mesh3d, Scatter3d
+from plotly.tools import FigureFactory as FF
+
 def localChartTo3D(x):
     dimension = len(x)
     if (dimension != 2):
@@ -25,7 +32,8 @@ def chartVelocityTo3D(x,v):
         out[k] = elt
     return out
 
-def render_sphere(xtraj, alphatraj, pwtraj):
+
+def render_sphere(xtraj, pwtraj):
     xtraj3D = np.array([localChartTo3D(elt) for elt in xtraj])
     pwtraj3D = np.array([chartVelocityTo3D(xtraj[i], pwtraj[i]) for i in xrange(len(xtraj))])
     # Create a sphere
@@ -59,4 +67,34 @@ def render_sphere(xtraj, alphatraj, pwtraj):
     ax.set_zlim([-1,1])
     ax.set_aspect("equal")
     plt.tight_layout()
+    plt.savefig("Graphs/ParallelTransportOnSphere.pdf")
     plt.show()
+
+
+# def render_sphere(xtraj, pwtraj):
+#     xtraj3D = np.array([localChartTo3D(elt) for elt in xtraj])
+#     pwtraj3D = np.array([chartVelocityTo3D(xtraj[i], pwtraj[i]) for i in range(len(xtraj))])
+#
+#
+#     #Plot a sphere
+#     r = 1.
+#     pi = np.pi
+#     cos = np.cos
+#     sin = np.sin
+#     phi, theta = np.mgrid[0.0:pi:50j, 0.0:2.0*pi:50j]
+#     x = r*sin(phi)*cos(theta)
+#     y = r*sin(phi)*sin(theta)
+#     z = r*cos(phi)
+#     xx, yy, zz = np.hsplit(xtraj3D, 3)
+#
+#     print(xx)
+#     sphere = Mesh3d({'x':x.flatten(), 'y':y.flatten(),'z':z.flatten(), 'alphahull':0})
+#     trajectory = Scatter3d(x=xx.flatten(), y=yy.flatten(), z=zz.flatten(), mode='lines')
+#
+#     nbPoints = 20
+#     pwtraj3DForPlot = np.array([pwtraj3D[int(len(pwtraj3D)*i*1./nbPoints)] for i in range(nbPoints)])
+#     xtraj3DForPlot = np.array([xtraj3D[int(len(xtraj3D)*i*1./nbPoints)] for i in range(nbPoints)])
+#     xvec, yvec, zvec = np.hsplit(xtraj3DForPlot, 3)
+#     u, v, w = np.hsplit(pwtraj3DForPlot, 3)
+#     vectors = FF.create_quiver(xvec.flatten(),yvec.flatten(),zvec.flatten(),u.flatten(),v.flatten(),w.flatten())
+#     iplot([sphere, trajectory, vectors])
