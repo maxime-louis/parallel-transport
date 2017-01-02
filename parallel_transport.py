@@ -389,6 +389,15 @@ for step in steps:
 
 plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2")
 
+errors = []
+for step in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_RK4(x, alpha, w, step)
+    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+    errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
+    # print(np.linalg.norm(rs.localChartTo3D(xtraj[-1])- x3DFinal))
+    print(errors[-1])
+
+plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1(x, alpha, w, step)
@@ -398,14 +407,14 @@ plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2")
 #
 # plt.scatter(nb, errors, alpha=0.7, color="green", label = "Runge-Kutta 1")
 
-# errors = []
-# for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x, alpha, w, step)
-#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-#     print(errors[-1])
-#
-# plt.scatter(nb, errors, alpha=0.7, color="purple", label = "Runge-Kutta 1 for the geodesic")
+errors = []
+for step in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x, alpha, w, step)
+    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+    errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
+    print(errors[-1])
+
+plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for the main geodesic")
 
 # errors = []
 # for step in steps:
@@ -416,15 +425,6 @@ plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2")
 #
 # plt.scatter(nb, errors, alpha=0.7, color="black", label = "Runge-Kutta 1 for Jacobi")
 
-errors = []
-for step in steps:
-    xtraj, alphatraj, pwtraj = parallel_transport_RK4(x, alpha, w, step)
-    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-    errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-    # print(np.linalg.norm(rs.localChartTo3D(xtraj[-1])- x3DFinal))
-    print(errors[-1])
-
-plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
 
 # errors = []
 # for step in steps:
@@ -443,9 +443,9 @@ plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
 #     print(errors[-1])
 # plt.scatter(nb, errors, alpha=0.7, color="yellow", label = "Five Point Method and Runge-Kutta 4")
 
-# plt.legend()
 plt.xlabel("1/N")
-plt.xlim(xmin=0)
-plt.ylim(ymin=0)
-# plt.savefig("Graphs/Sphere/DifferentErrrorsRKOrder.pdf")
+plt.legend(loc='upper left')
+plt.xlim([0,0.008])
+plt.ylim([0,0.0003])
+plt.savefig("/Users/maxime.louis/Documents/Paper Parallel transport/figures/ErrorsSPD.pdf")
 plt.show()

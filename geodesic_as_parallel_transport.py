@@ -45,39 +45,41 @@ def compute_geodesic(x, alpha, number_of_time_steps):
     time  = 0.
     # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
     for k in range(number_of_time_steps):
-        time = time + delta
-        xcurr = xtraj[k]
-        alphacurr = alphatraj[k]
-        #Compute the position of the next point on the geodesic
-        xcurr = xcurr + delta * vector_from_co_vector(xcurr, alphacurr)
-        #Co-vector of w_k : g^{ab} w_b
-        betacurr = co_vector_from_vector(xtraj[k], alphacurr)
-        perturbations = [1,-1]
-        Weights = [0.5, -0.5]
-        Jacobi = np.zeros(2)
-        #For each perturbation, compute the perturbed geodesic
-        for i, pert in enumerate(perturbations):
-            alphaPk = alphatraj[k] + pert * epsilon * betacurr
-            alphaPerturbed = alphaPk
-            xPerturbed = xtraj[k]
-            for step in RK_Steps:
-                Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed)
-                xPerturbed = xtraj[k] + step * delta * Fx
-                alphaPerturbed = alphaPk + step * delta * Falpha
-            #Update the estimate
-            Jacobi = Jacobi + Weights[i] * xPerturbed
-        xtraj[k+1] = xcurr
-        alphatraj[k+1] = Jacobi / (epsilon * delta);
-    return xtraj, alphatraj
+        #We do two steps to use a RK from the parallel transport.
+        for i in range(2):
+            time = time + delta
+            xcurr = xtraj[k]
+            alphacurr = alphatraj[k]
+            #Compute the position of the next point on the geodesic
+            xcurr = xcurr + delta * vector_from_co_vector(xcurr, alphacurr)
+            #Co-vector of w_k : g^{ab} w_b
+            betacurr = co_vector_from_vector(xtraj[k], alphacurr)
+            perturbations = [1,-1]
+            Weights = [0.5, -0.5]
+            Jacobi = np.zeros(2)
+            #For each perturbation, compute the perturbed geodesic
+            for i, pert in enumerate(perturbations):
+                alphaPk = alphatraj[k] + pert * epsilon * betacurr
+                alphaPerturbed = alphaPk
+                xPerturbed = xtraj[k]
+                for step in RK_Steps:
+                    Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed)
+                    xPerturbed = xtraj[k] + step * delta * Fx
+                    alphaPerturbed = alphaPk + step * delta * Falpha
+                #Update the estimate
+                Jacobi = Jacobi + Weights[i] * xPerturbed
+            xtraj[k+1] = xcurr
+            alphatraj[k+1] = Jacobi / (epsilon * delta);
+        return xtraj, alphatraj
 
 x = np.array([1.,0.8])
 x3D = rs.localChartTo3D(x)
 direction = np.array([0.,1.])
-v = np.pi * direction /np.sqrt(np.dot(direction,co_vector_from_vector(x,direction)))
+v = np.pi * direction /np.sqrt(np.dot(direction,co_vector_from_vector(x,direction)))/10.
 alpha = co_vector_from_vector(x, v)
-v3D = rs.chartVelocityTo3D(x,v)
 
 #true endpoint and parallel vector
+v3D = rs.chartVelocityTo3D(x,v)
 n = np.linalg.norm(v3D)
 x3DFinal = np.cos(n)*x3D + np.sin(n) * v3D/n
 v3DFinal = -np.sin(n)* n * x3DFinal + np.cos(n) * v3D
@@ -86,12 +88,13 @@ errors = []
 steps = [elt * 50 for elt in range(30,200)]
 nb = [1./elt for elt in steps]
 for step in steps:
-    xtraj, alphatraj = compute_geodesic(x, alpha, 100000)
+    xtraj, alphatraj = compute_geodesic(x, alpha, step)
     errors.append(np.linalg.norm(rs.localChartTo3D(xtraj[-1]) - x3DFinal))
+    print rs.localChartTo3D(xtraj[-1]), x3DFinal
     print "Error when self-transporting :", errors[-1]
 
-# plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Self-Transporting")
-# plt.legend()
-# plt.ylim(ymin=0)
-# plt.xlim(xmin=0)
-# plt.show()
+plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Self-Transporting")
+plt.legend()
+plt.ylim(ymin=0)
+plt.xlim(xmin=0)
+plt.show()

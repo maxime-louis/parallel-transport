@@ -67,7 +67,7 @@ def render_sphere(xtraj, pwtraj):
     ax.set_zlim([-1,1])
     ax.set_aspect("equal")
     plt.tight_layout()
-    plt.savefig("Graphs/ParallelTransportOnSphere.pdf")
+    # plt.savefig("Graphs/ParallelTransportOnSphere.pdf")
     plt.show()
 
 
