@@ -4,12 +4,6 @@ from matplotlib import cm, colors
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 
-from plotly import __version__
-import plotly.plotly as py
-import plotly.graph_objs as go
-from plotly.offline import download_plotlyjs, plot, iplot
-from plotly.graph_objs import Mesh3d, Scatter3d
-from plotly.tools import FigureFactory as FF
 
 def localChartTo3D(x):
     dimension = len(x)
