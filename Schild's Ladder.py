@@ -6,14 +6,35 @@ from mpl_toolkits.mplot3d import Axes3D
 from geographiclib.geodesic import Geodesic
 import matplotlib.pyplot as plt
 
+def render_sphere(points, support = [], vectors=[]):
+    #Set colours and render
+    fig = plt.figure(figsize=(11,11))
+    ax = fig.add_subplot(111, projection='3d')
+    # Create a sphere
+    r = 1
+    pi = np.pi
+    cos = np.cos
+    sin = np.sin
+    phi, theta = np.mgrid[0.0:pi:50j, 0.0:2.0*pi:50j]
+    x = r*sin(phi)*cos(theta)
+    y = r*sin(phi)*sin(theta)
+    z = r*cos(phi)
+    ax.plot_surface(x, y, z,  rstride=1, cstride=1, color='c', alpha=0.3, linewidth=0)
 
-def invcotang(x):
-    if x==0:
-        return math.pi/2
-    elif x<0:
-        return math.pi + np.arctan(1/x)
-    else:
-        return np.arctan(1/x)
+    xx, yy, zz = np.hsplit(points, 3)
+    ax.scatter(xx,yy,zz,color="k",s=20)
+    if len(vectors)>=1:
+        assert len(support) == len(vectors), "Lengths don't match !"
+        u, v, w = np.hsplit(vectors, 3)
+        xxx, yyy, zzz = np.hsplit(support, 3)
+        ax.quiver(xxx, yyy ,zzz , u, v, w,length = 0.3, pivot = "tail")
+    ax.set_xlim([-1,1])
+    ax.set_ylim([-1,1])
+    ax.set_zlim([-1,1])
+    ax.set_aspect("equal")
+    plt.tight_layout()
+    # plt.savefig("Graphs/ParallelTransportOnSphere.pdf")
+    plt.show()
 
 def localChartTo3D(x):
     dimension = len(x)
@@ -47,9 +68,11 @@ def to2D(x):
     assert len(x)==3, "Not the right dimension of input !"
     if abs(np.linalg.norm(x) - 1)>=1e-4:
         print(np.linalg.norm(x), "Not of norm 1")
-    theta = np.arctan(x[1]/x[0])
-    phi = np.arccos(x[2])
-    return np.array([phi,theta])
+    phi = np.arctan(x[1]/x[0])
+    if phi<=0:
+        phi += math.pi#To keep phi where it belongs.
+    theta = np.arccos(x[2])#Lies between 0 and pi : ok.
+    return np.array([theta,phi])#This respects the convention
 
 
 def toLatituteLongitude(x):
@@ -73,17 +96,7 @@ def inverseProblemLine(x,y):
     g = geod.InverseLine(xl[0], xl[1], yl[0], yl[1])
     return g
 
-
-# x = [0.2, 1.6]
-# y = [2., 0.1]
-# line = inverseProblemLine(x,y)
-# print(line.s13)
-# pos = line.Position(1., Geodesic.STANDARD)
-# lat = pos['lat2']
-# lon = pos['lon2']
-# print toSpherical([lat, lon])
-
-def SchildsLadder(x,v,w,number_of_time_steps):
+def SchildsLadder(x,v,w,number_of_time_steps, verbose = False, factor = 1.):
     x3D = localChartTo3D(x)
     v3D = chartVelocityTo3D(x, v)
     dimension = 2 #Dimension of the manifold
@@ -95,71 +108,151 @@ def SchildsLadder(x,v,w,number_of_time_steps):
         xtraj[i] = to2D(computeGeodesic(x3D, v3D, delta * i))
     pwtraj[0] = w
     time  = 0.
+    maxprecision = 0.
     for k in range(number_of_time_steps):
-        print("\n")
+        if verbose:
+            print("\n")
         # Get P0, P1
         P0 = xtraj[k]
         P1 = xtraj[k+1]
         # Compute the first geodesic to find P2, from P0 with initial tangent vector wk
-        P2 = to2D(computeGeodesic(localChartTo3D(P0), chartVelocityTo3D(P0, pwtraj[k]), delta))
+        P2 = to2D(computeGeodesic(localChartTo3D(P0), chartVelocityTo3D(P0, pwtraj[k]), delta*factor))
         # Compute the geodesic linking P1 to P2 and its midpoint P3
         invLine = inverseProblemLine(P2, P1)
-        print("P0", P0)
-        print("P1", P1)
-        print("P2", P2)
+        if verbose:
+            print("P0", P0)
+            print("P1", P1)
+            print("P2", P2)
         pos = invLine.Position(invLine.s13/2., Geodesic.STANDARD)
         P3Latitude = pos['lat2']
         P3Longitude = pos['lon2']
         P3 = toSpherical([P3Latitude, P3Longitude])
-        print("P3", P3)
-        # Compute the geodesic linking P0 to P3 and go twice further to get P4, wk+1 is the riemannian
+        if verbose:
+            print("P3", P3)
+        # Compute the geodesic linking P0 to P3 and go twice further to get P4,
         invLine = inverseProblemLine(P0, P3)
         pos = invLine.Position(invLine.s13 * 2.)
         P4Latitude = pos['lat2']
         P4Longitude = pos['lon2']
         P4 = toSpherical([P4Latitude, P4Longitude])
-        print("P4", P4)
-        # logarithm of the geodesic connecting P1 to P4.
+        if verbose:
+            print("P4", P4)
+        #wk+1 is the riemannian logarithm of the geodesic connecting P1 to P4.
         invLine = inverseProblemLine(P1, P4)
         P1Obj = invLine.Position(0.)
         aziRa = P1Obj['azi1'] * math.pi/180.
         direction = np.array([-1.*np.cos(aziRa), np.sin(aziRa)])
-        directionNorm = np.cos(aziRa)**2 + np.sin(-1.*np.cos(aziRa))**2*np.sin(aziRa)**2
-        print("norm", directionNorm)
+        # directionNorm = np.cos(aziRa)**2 + np.sin(-1.*np.cos(aziRa))**2*np.sin(aziRa)**2
+        # print("norm", directionNorm)
         normalizedDirection = direction#/ directionNorm
-        transported = normalizedDirection * invLine.s13  /delta
-        print("azimuth", aziRa, "transported", transported)
-        precision = np.linalg.norm(computeGeodesic(localChartTo3D(P1), chartVelocityTo3D(P1, transported), delta) - localChartTo3D(P4))
-        print("precision", precision)
+        transported = normalizedDirection * invLine.s13
+        precision = np.linalg.norm(computeGeodesic(localChartTo3D(P1), chartVelocityTo3D(P1, transported), 1.) - localChartTo3D(P4))
+        assert precision<=1e-15, "Large error in the inverse problem"
+        if precision >= maxprecision:
+            maxprecision = precision
+        if verbose:
+            print("precision", precision)
         # assert precision<1e-2, precision
-        pwtraj[k+1] = transported
+        pwtraj[k+1] = transported/(delta*factor)
+    # print("Largest error in inverse problem : ", maxprecision)
     return xtraj, pwtraj
 
-x = [2., 1.]
-v = [0.01, 0.05]
-w = [0.,0.1]
-steps = 1
-xtraj, pwtraj = SchildsLadder(x,v,w,steps)
+def GetErrors():
+    x = [math.pi/2.,5.1]
+    x3D = localChartTo3D(x)
+    v = [0., 1.]
+    v3D = chartVelocityTo3D(x, v)
+    w = [1.,0.]
+    w3D = chartVelocityTo3D(x, w)
 
-x3D = localChartTo3D(x)
-v3D = chartVelocityTo3D(x, v)
-w3D = chartVelocityTo3D(x, w)
+    n = np.linalg.norm(v3D)
+    x3DFinal = np.cos(n)*x3D + np.sin(n) * v3D/n
+    v3DFinal = -np.sin(n)* n * x3DFinal + np.cos(n) * v3D
 
-n = np.linalg.norm(v3D)
-x3DFinal = np.cos(n)*x3D + np.sin(n) * v3D/n
-v3DFinal = -np.sin(n)* n * x3DFinal + np.cos(n) * v3D
+    proj = np.dot(v3D,w3D)/np.dot(v3D, v3D)
+    projOrtho = np.dot(np.cross(x3D,v3D), w3D)/np.dot(v3D,v3D)
+    truepw3D = proj * v3DFinal + projOrtho*np.cross(x3D, v3D)
 
-proj = np.dot(v3D,w3D)/np.dot(v3D, v3D)
-projOrtho = np.dot(np.cross(x3D,v3D), w3D)/np.dot(v3D,v3D)
-truepw3D = proj * v3DFinal + projOrtho*np.cross(x3D, v3D)
-print("true pw :", truepw3D)
-print("Estimated :", chartVelocityTo3D(to2D(x3DFinal), pwtraj[-1]))
-# x1 = [1.,1.]
-# x2 = [1.5, 1.]
-# invLine = inverseProblemLine(x1, x2)
-# x1Obj = invLine.Position(0.)
-# aziRa = x1Obj['azi1'] * math.pi/180.
-# print("azimuth", aziRa, "distance", invLine.s13)
-# v = np.array([-np.cos(aziRa), -np.sin(aziRa)]) * invLine.s13
-# print("v", v)
-# print(computeGeodesic(localChartTo3D(x1), chartVelocityTo3D(x1, v), 1.), localChartTo3D(x2))
+    errors = []
+    nb = [int(i*10) for i in np.linspace(10,100,20)]
+    inverseNb = [1./elt for elt in nb]
+
+    for step in nb:
+        xtraj, pwtraj = SchildsLadder(x,v,w,step)
+        xtraj3D = np.array([localChartTo3D(elt) for elt in xtraj])
+        pwtraj3D = np.array([chartVelocityTo3D(xtraj[i], pwtraj[i]) for i in range(len(xtraj))])
+        errors.append(np.linalg.norm(pwtraj3D[-1] - truepw3D))
+        # print("true pw :", truepw3D)
+        # print("Estimated :", chartVelocityTo3D(to2D(x3DFinal), pwtraj[-1]))
+        print("Error :", errors[-1], "Steps :", step)
+    return nb, errors
+
+
+def ErrorAsFunctionOfDelta():
+    x = [math.pi/2.,5.1]
+    x3D = localChartTo3D(x)
+    v = [0., 1.]
+    v3D = chartVelocityTo3D(x, v)
+    w = [1.,0.]
+    w3D = chartVelocityTo3D(x, w)
+
+    n = np.linalg.norm(v3D)
+    x3DFinal = np.cos(n)*x3D + np.sin(n) * v3D/n
+    v3DFinal = -np.sin(n)* n * x3DFinal + np.cos(n) * v3D
+
+    proj = np.dot(v3D,w3D)/np.dot(v3D, v3D)
+    projOrtho = np.dot(np.cross(x3D,v3D), w3D)/np.dot(v3D,v3D)
+    truepw3D = proj * v3DFinal + projOrtho*np.cross(x3D, v3D)
+
+    nbSteps = 50
+    factors = np.linspace(0.0001,0.0002,50)
+    errors = []
+    for fact in factors:
+        xtraj, pwtraj = SchildsLadder(x,v,w,nbSteps,factor=fact)
+        xtraj3D = np.array([localChartTo3D(elt) for elt in xtraj])
+        pwtraj3D = np.array([chartVelocityTo3D(xtraj[i], pwtraj[i]) for i in range(len(xtraj))])
+        errors.append(np.linalg.norm(pwtraj3D[-1] - truepw3D))
+        # print("true pw :", truepw3D)
+        # print("Estimated :", chartVelocityTo3D(to2D(x3DFinal), pwtraj[-1]))
+        print("Error :", errors[-1], "factor :", fact)
+    return factors, errors
+
+abscisse, errors = GetErrors()
+# st = [1./elt for elt in abscisse]
+# plt.plot(st, errors)
+# plt.xlim(xmin = 0)
+# plt.ylim(ymin = 0)
+#plt.savefig("Graphs/Schildserror.pdf")
+# plt.show()
+
+
+
+
+
+
+
+
+
+# P1 = [1.5,5]
+# P2 = [0.7,6.]
+# P13D = localChartTo3D(P1)
+# P23D = localChartTo3D(P2)
+# print(P13D, P23D)
+# invLine = inverseProblemLine(P1, P2)
+#
+# nbSteps = 100
+# traj = np.zeros((nbSteps, 3))
+# for i,t in enumerate(np.linspace(0., invLine.s13, nbSteps)):
+#     obj = invLine.Position(t)
+#     lon = obj['lon2']
+#     lat = obj['lat2']
+#     traj[i] = localChartTo3D(toSpherical([lat, lon]))
+#
+# P1Obj = invLine.Position(0.)
+# aziRa = P1Obj['azi1'] * math.pi/180.
+# direction = np.array([-1.*np.cos(aziRa), np.sin(aziRa)])
+# direction3D = chartVelocityTo3D(P1, direction)
+# support = np.array([P13D])
+# vector = np.array([direction3D])
+#
+# render_sphere(traj, support, vector)

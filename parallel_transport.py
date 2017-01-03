@@ -2,7 +2,7 @@
 import numpy as np
 import render_sphere as rs
 import matplotlib.pyplot as plt
-
+import math
 #For the sphere x = [theta, phi]
 
 #colors : peru, royalblue, brown, green, yellow
@@ -356,16 +356,23 @@ def plot_norm(x, w):
     plt.plot(norms)
     plt.show()
 
-
-x = np.array([1.,0.8])
+x = [math.pi/2.,5.1]
 x3D = rs.localChartTo3D(x)
-direction = np.array([0.,1.])
-v = np.pi * direction /np.sqrt(np.dot(direction,co_vector_from_vector(x,direction)))/10.
-alpha = co_vector_from_vector(x, v)
-w = [alpha[1], -alpha[0]]
-
+v = [0., 1.]
+v3D = rs.chartVelocityTo3D(x, v)
+w = [1.,0.]
 w3D = rs.chartVelocityTo3D(x, w)
-v3D = rs.chartVelocityTo3D(x,v)
+alpha = co_vector_from_vector(x,v)
+
+# x = np.array([1.,0.8])
+# x3D = rs.localChartTo3D(x)
+# direction = np.array([0.,1.])
+# v = np.pi * direction /np.sqrt(np.dot(direction,co_vector_from_vector(x,direction)))/10.
+# alpha = co_vector_from_vector(x, v)
+# w = [alpha[1], -alpha[0]]
+#
+# w3D = rs.chartVelocityTo3D(x, w)
+# v3D = rs.chartVelocityTo3D(x,v)
 
 #true endpoint and parallel vector
 n = np.linalg.norm(v3D)
@@ -376,18 +383,18 @@ proj = np.dot(v3D,w3D)/np.dot(v3D, v3D)
 projOrtho = np.dot(np.cross(x3D,v3D), w3D)/np.dot(v3D,v3D)
 truepw3D = proj * v3DFinal + projOrtho*np.cross(x3D, v3D)
 
-
-steps = [elt * 5 for elt in range(30,200)]
+steps = [int(i*10) for i in np.linspace(10,100,20)]
+# steps = [elt * 5 for elt in range(30,200)]
 nb = [1./elt for elt in steps]
 
-errors = []
-for step in steps:
-    xtraj, alphatraj, pwtraj = parallel_transport(x, alpha, w, step)
-    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-    errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-    print(errors[-1])
-
-plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2")
+# errors = []
+# for step in steps:
+#     xtraj, alphatraj, pwtraj = parallel_transport(x, alpha, w, step)
+#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
+#     print("Error :",errors[-1], "Steps :", step)
+#
+# plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2")
 
 errors = []
 for step in steps:
@@ -395,7 +402,7 @@ for step in steps:
     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
     # print(np.linalg.norm(rs.localChartTo3D(xtraj[-1])- x3DFinal))
-    print(errors[-1])
+    print("Error:",errors[-1], "Steps :", step)
 
 plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
 # errors = []
@@ -407,14 +414,14 @@ plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
 #
 # plt.scatter(nb, errors, alpha=0.7, color="green", label = "Runge-Kutta 1")
 
-errors = []
-for step in steps:
-    xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x, alpha, w, step)
-    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-    errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-    print(errors[-1])
-
-plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for the main geodesic")
+# errors = []
+# for step in steps:
+#     xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x, alpha, w, step)
+#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
+#     print(errors[-1])
+#
+# plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for the main geodesic")
 
 # errors = []
 # for step in steps:
@@ -443,9 +450,9 @@ plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for th
 #     print(errors[-1])
 # plt.scatter(nb, errors, alpha=0.7, color="yellow", label = "Five Point Method and Runge-Kutta 4")
 
-plt.xlabel("1/N")
-plt.legend(loc='upper left')
-plt.xlim([0,0.008])
-plt.ylim([0,0.0003])
-plt.savefig("/Users/maxime.louis/Documents/Paper Parallel transport/figures/ErrorsSPD.pdf")
-plt.show()
+# plt.xlabel("1/N")
+# plt.legend(loc='upper left')
+# plt.xlim([0,0.008])
+# plt.ylim([0,0.0003])
+# plt.savefig("/Users/maxime.louis/Documents/Paper Parallel transport/figures/ErrorsSPD.pdf")
+# plt.show()
