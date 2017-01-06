@@ -573,35 +573,45 @@ def parallel_transport_RK1Jacobi(x, alpha, w, number_of_time_steps):
     return xtraj, alphatraj, pwtraj
 
 
-w0 = np.array([[0,0.2,0],[0.2,1,0],[0,0,0]])
+# w0 = np.array([[1.,0.2,0],[0.2,1,0],[0,0,0]])
 x0 = np.eye(3)
 print "x0", x0
 v0 = np.array([[1,1,0],[1,0,0],[0,0,0]])/5.
-# w0 = v0
-#Exact final values
-pFinal = trueGeodesic(x0, v0, 1.)
-wFinal = trueParallelTransport(x0, v0, w0)
-#Get the flat versions
-x0Flat, v0Flat, wFlat = flatten(x0), flatten(v0), flatten(w0)
-#get the initial momentum
-initialMetric = getMetricMatrix(x0Flat)
-alpha = co_vector_from_vector(x0Flat, v0Flat, initialMetric)
-
-steps = [elt*12 for elt in range(10,40)]
-nb = [1./elt for elt in steps]
-#
-# errors = []
-# for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport(x0Flat, alpha, wFlat, step)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print "RK2",errors[-1]
+orthov0 = np.array([[0,0,0],[0,0,0],[0,0,1]])
+colors = ['b','g','r','c','k','y']
+ws  = [orthov0, 5*v0]
+for i in range(3):
+    ws.append(generateRandomSymmetric())
+    print(ws[-1])
+errrrors = []
+sps = []
+for i,w0 in enumerate(ws):
+    pFinal = trueGeodesic(x0, v0, 1.)
+    wFinal = trueParallelTransport(x0, v0, w0)
+    #Get the flat versions
+    x0Flat, v0Flat, wFlat = flatten(x0), flatten(v0), flatten(w0)
+    #get the initial momentum
+    initialMetric = getMetricMatrix(x0Flat)
+    alpha = co_vector_from_vector(x0Flat, v0Flat, initialMetric)
+    steps = [int(elt)*6 for elt in np.linspace(3,180,10)]
+    nb = [1./elt for elt in steps]
+    errors = []
+    sp = metric(x0Flat, v0Flat, wFlat)/np.sqrt(metric(x0Flat, wFlat, wFlat)*metric(x0Flat, v0Flat, v0Flat))
+    sps.append(sp)
+    print("sp", sp)
+    for step in steps:
+        xtraj, alphatraj, pwtraj = parallel_transport(x0Flat, alpha, wFlat, step)
+        errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+        print "RK2",errors[-1], "Steps", step
+    errrrors.append(errors)
 # np.save("Data2/RK2traj", xtraj)
 # np.save("Data2/RK2alphatraj", alphatraj)
 # np.save("Data2/RK2pwtraj", pwtraj)
 # np.save("Data2/RK2errors", np.array(errors))
 # np.save("Data2/RK2steps", steps)
 # errors = np.load("Data2/RK2errors.npy")
-# plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2")
+for i,err in enumerate(errrrors):
+    plt.scatter(nb, errrrors[i], alpha=0.7, color=colors[i], label = "Runge-Kutta 2 " + str(sps[i])[:5])
 
 # errors = []
 # for step in steps:
@@ -616,18 +626,18 @@ nb = [1./elt for elt in steps]
 # errors = np.load("Data2/RK1errors.npy")
 # plt.scatter(nb, errors, alpha=0.7, color="green", label = "Runge-Kutta 1")
 
-errors = []
-for step in steps:
-    xtraj, alphatraj, pwtraj = parallel_transport_RK4(x0Flat, alpha, wFlat, step)
-    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-    print "RK4", errors[-1]
+# errors = []
+# for step in steps:
+#     xtraj, alphatraj, pwtraj = parallel_transport_RK4(x0Flat, alpha, wFlat, step)
+#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+#     print "RK4", errors[-1]
 # np.save("Data2/RK4traj", xtraj)
 # np.save("Data2/RK4alphatraj", alphatraj)
 # np.save("Data2/RK4pwtraj", pwtraj)
 # np.save("Data2/RK4errors", np.array(errors))
 # np.save("Data2/RK4steps", steps)
 # errors = np.load("Data2/RK4errors.npy")
-plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
+# plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
 
 # errors = []
 # for nbSteps in steps:
@@ -697,7 +707,7 @@ plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
 #
 plt.xlabel("1/N")
 plt.legend(loc='upper left')
-plt.xlim([0,0.01])
-plt.ylim([0,0.001])
+plt.xlim(xmin=0)
+plt.ylim(ymin=0)
 # plt.savefig("/Users/maxime.louis/Documents/Paper Parallel transport/figures/ErrorsSPD.pdf")
 plt.show()

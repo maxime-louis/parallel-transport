@@ -31,11 +31,38 @@ def hamiltonian_equation(x, alpha):
   Falpha = np.array([np.cos(x[0])/np.sin(x[0])**3. * alpha[1]**2., 0.])
   return Fx, Falpha
 
+def trueParallelTransport(x,v,w,t):
+    v3D = rs.chartVelocityTo3D(x, v)
+    x3D = rs.localChartTo3D(x)
+    w3D = rs.chartVelocityTo3D(x, w)
+    n = np.linalg.norm(v3D)
+    if n<1e-10:
+        return w3D
+    squaredNorm = np.dot(v3D, v3D)
+    x3DFinal = computeGeodesic(x,v,t)
+    v3DFinal = computeGeodesicVelocity(x,v,t)
+    print(np.dot(w3D, w3D) - np.dot(w3D,v3D)/squaredNorm)
+    sign = np.sign(np.dot(w3D, np.cross(x3D,v3D)))
+    truepw3D = v3DFinal * np.dot(w3D,v3D) /(squaredNorm) + sign*np.sqrt(np.dot(w3D, w3D) - np.dot(w3D,v3D)**2/squaredNorm) * np.cross(x3DFinal, v3DFinal/n)
+    return truepw3D
+
+def computeGeodesic(x,v,t):
+    x3D = rs.localChartTo3D(x)
+    v3D = rs.chartVelocityTo3D(x,v)
+    norm = np.linalg.norm(v3D)
+    return np.cos(t*norm)*x3D + np.sin(t*norm) * v3D/norm
+
+def computeGeodesicVelocity(x,v,t):
+    x3D = rs.localChartTo3D(x)
+    v3D = rs.chartVelocityTo3D(x,v)
+    norm = np.linalg.norm(v3D)
+    return -np.sin(t*norm)*x3D*norm + np.cos(t*norm) * v3D
+
+
 def parallel_transport(x, alpha, w, number_of_time_steps):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-
     #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
@@ -47,12 +74,13 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
     initialNorm = np.sqrt(norm(x,w))
     initialCrossProductWithVelocity = metric(x,v,w)
     RK_Steps = [0.5,1.]
-    time  = 0.
     # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
     for k in range(number_of_time_steps):
-        time = time + delta
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
+        velocity = vector_from_co_vector(xcurr, alphacurr)
+        # print("Scalar product :", metric(xcurr, velocity, pwtraj[k]))
+        # print("w norm :", metric(xcurr, pwtraj[k], pwtraj[k]))
         #Compute the position of the next point on the geodesic
         for i,step in enumerate(RK_Steps):
             Fx, Falpha = hamiltonian_equation(xcurr, alphacurr)
@@ -72,6 +100,7 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
                 Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed)
                 xPerturbed = xtraj[k] + step * delta * Fx
                 alphaPerturbed = alphaPk + step * delta * Falpha
+            # print(xPerturbed)
             #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
         pwtraj[k+1] = Jacobi / (epsilon * delta)
@@ -349,110 +378,98 @@ def parallel_transport_RK1Jacobi(x, alpha, w, number_of_time_steps):
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
 
+x = [math.pi/2+1.5,0.8]
+v = np.array([0.1, 0.3])
+vortho = np.array([-v[1], v[0]/np.sin(x[0])**2])
+w=vortho
 
-def plot_norm(x, w):
-    norms = [norm(x[i], w[i]) for i in range(len(xtraj))]
-    # print(norms[:100])
-    plt.plot(norms)
-    plt.show()
-
-x = [math.pi/2.,5.1]
-x3D = rs.localChartTo3D(x)
-v = [0., 1.]
 v3D = rs.chartVelocityTo3D(x, v)
-w = [1.,0.]
+x3D = rs.localChartTo3D(x)
 w3D = rs.chartVelocityTo3D(x, w)
+
 alpha = co_vector_from_vector(x,v)
 
-# x = np.array([1.,0.8])
-# x3D = rs.localChartTo3D(x)
-# direction = np.array([0.,1.])
-# v = np.pi * direction /np.sqrt(np.dot(direction,co_vector_from_vector(x,direction)))/10.
-# alpha = co_vector_from_vector(x, v)
-# w = [alpha[1], -alpha[0]]
-#
-# w3D = rs.chartVelocityTo3D(x, w)
-# v3D = rs.chartVelocityTo3D(x,v)
+#true end point, end velocity and parallel transport
+x3DFinal = computeGeodesic(x,v,1.)
+v3DFinal = computeGeodesicVelocity(x,v,1.)
+pw3D = trueParallelTransport(x,v,w,1.)
 
-#true endpoint and parallel vector
-n = np.linalg.norm(v3D)
-x3DFinal = np.cos(n)*x3D + np.sin(n) * v3D/n
-v3DFinal = -np.sin(n)* n * x3DFinal + np.cos(n) * v3D
+print(x3D)
+print("w3D", w3D)
+print("v3DInitial", v3D, "v3DFinal", v3DFinal)
+print("x3DInitial", x3D, "x3DFinal", x3DFinal)
+print("initial w :", w3D, "pw :", pw3D)
 
-proj = np.dot(v3D,w3D)/np.dot(v3D, v3D)
-projOrtho = np.dot(np.cross(x3D,v3D), w3D)/np.dot(v3D,v3D)
-truepw3D = proj * v3DFinal + projOrtho*np.cross(x3D, v3D)
-
-steps = [int(i*10) for i in np.linspace(10,100,20)]
-# steps = [elt * 5 for elt in range(30,200)]
+steps = [int(i*200) for i in np.linspace(1,20)]
 nb = [1./elt for elt in steps]
+errors = []
 
-# errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-#     print("Error :",errors[-1], "Steps :", step)
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     print("Error RK2 :",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
 #
-# plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2")
+# plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2 ")
 
 errors = []
 for step in steps:
     xtraj, alphatraj, pwtraj = parallel_transport_RK4(x, alpha, w, step)
     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-    errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-    # print(np.linalg.norm(rs.localChartTo3D(xtraj[-1])- x3DFinal))
-    print("Error:",errors[-1], "Steps :", step)
+    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+    print("Error RK4:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
 
-plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4")
+plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4 ")
+#
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-#     print(errors[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     print("Error RK1:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
 #
 # plt.scatter(nb, errors, alpha=0.7, color="green", label = "Runge-Kutta 1")
-
+#
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-#     print(errors[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     print("Error RK1 geodesic:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
 #
 # plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for the main geodesic")
-
+#
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1Jacobi(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-#     print(errors[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     print("Error RK1 Jacobi:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
 #
 # plt.scatter(nb, errors, alpha=0.7, color="black", label = "Runge-Kutta 1 for Jacobi")
-
+#
 
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-#     print(errors[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     print("Error RK2 and five-point method:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
 #
 # plt.scatter(nb, errors, alpha=0.7, color="peru", label = "Five Point Method and Runge-Kutta 2")
-#
-# errors = []
-# for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x, alpha, w, step)
-#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-truepw3D)/np.linalg.norm(w))
-#     print(errors[-1])
-# plt.scatter(nb, errors, alpha=0.7, color="yellow", label = "Five Point Method and Runge-Kutta 4")
 
-# plt.xlabel("1/N")
-# plt.legend(loc='upper left')
-# plt.xlim([0,0.008])
-# plt.ylim([0,0.0003])
+errors = []
+for step in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x, alpha, w, step)
+    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+    print("Error RK4 and five point:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
+plt.scatter(nb, errors, alpha=0.7, color="yellow", label = "Five Point Method and Runge-Kutta 4")
+
+plt.xlabel("1/N")
+plt.legend(loc='upper left')
+plt.xlim(xmin=0)
+plt.ylim(ymin=0)
+plt.tight_layout()
 # plt.savefig("/Users/maxime.louis/Documents/Paper Parallel transport/figures/ErrorsSPD.pdf")
-# plt.show()
+plt.show()
