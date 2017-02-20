@@ -207,10 +207,16 @@ def SchildsLadder(x,v,w,number_of_time_steps, verbose = False, factor = 1.):
 
 def GetErrors():
     #Initial conditions
-    x = [math.pi/2.+1.5,0.8]
-    v = np.array([0.1, 0.3])
-    w = v
+    # x = [math.pi/2.+1.5,0.8]
+    # v = np.array([1., -1.])
+    # w = v
+    # vortho = np.array([-v[1], v[0]/np.sin(x[0])**2])
+    # w = v + vortho
+    x = [math.pi/4,0.]
+    v = np.array([2.9616, 1.4810])/2.
+    alpha = [ 1.4808 ,  0.37025]
     vortho = np.array([-v[1], v[0]/np.sin(x[0])**2])
+    w=[alpha[1], -alpha[0]]
     #3D equivalents
     x3D = localChartTo3D(x)
     v3D = chartVelocityTo3D(x, v)
@@ -219,13 +225,16 @@ def GetErrors():
     pw3D = trueParallelTransport(x,v,w,1.)
     #Steps and corresponding errors
     errors = []
-    nb = [i for i in range(1,100)]
+    nb = [i for i in range(10,200,3)]
     inverseNb = [1./elt for elt in nb]
+    print("Real transport :", pw3D)
     for step in nb:
         xtraj3D, pwtraj = SchildsLadder(x,v,w,step, verbose = False)
         pwestimate3D = chartVelocityTo3D(to2D(xtraj3D[-1]), pwtraj[-1])
         errors.append(np.linalg.norm(pwestimate3D - pw3D)/np.linalg.norm(w))
-        print("Error :", errors[-1], "Steps :", step, "Predicted : ", pwestimate3D)
+        print("")
+        print("Predicted previous time step :", chartVelocityTo3D(to2D(xtraj3D[-2]), pwtraj[-2]))
+        print("Error :", np.linalg.norm(pwestimate3D - pw3D)/np.linalg.norm(w), "Steps :", step, "Predicted : ", pwestimate3D)
     return nb, errors
 
 
@@ -248,7 +257,7 @@ def ErrorAsFunctionOfDelta():
         xtraj, pwtraj = SchildsLadder(x,v,w,nbSteps,factor=fact)
         xtraj3D = np.array([localChartTo3D(elt) for elt in xtraj])
         pwtraj3D = np.array([chartVelocityTo3D(xtraj[i], pwtraj[i]) for i in range(len(xtraj))])
-        errors.append(np.linalg.norm(pwtraj3D[-1] - truepw3D)/np.linalg.norm(w))
+        errors.append(np.linalg.norm(pwtraj3D[-1] - truepw3D)/np.linalg.norm(pw3D))
         # print("true pw :", truepw3D)
         # print("Estimated :", chartVelocityTo3D(to2D(x3DFinal), pwtraj[-1]))
         print("Error :", errors[-1], "factor :", fact, "Predicted : ", pwtraj3D[-1])
@@ -256,9 +265,10 @@ def ErrorAsFunctionOfDelta():
 
 
 nb, errors = GetErrors()
-# st = [1./elt for elt in nb]
-# plt.plot(st, errors)
-# plt.xlim(xmin = 0)
-# plt.ylim(ymin = 0)
-# # plt.savefig("Graphs/Schildserror.pdf")
-# plt.show()
+np.save("errorSchild",errors)
+st = [1./elt for elt in nb]
+plt.plot(st, errors)
+plt.xlim(xmin = 0)
+plt.ylim(ymin = 0)
+# plt.savefig("Graphs/Schildserror.pdf")
+plt.show()

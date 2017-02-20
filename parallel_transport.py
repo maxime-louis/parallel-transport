@@ -3,6 +3,8 @@ import numpy as np
 import render_sphere as rs
 import matplotlib.pyplot as plt
 import math
+from scipy import linalg
+from sklearn import datasets, linear_model
 #For the sphere x = [theta, phi]
 
 #colors : peru, royalblue, brown, green, yellow
@@ -10,6 +12,29 @@ import math
 def norm(x,w):
     # print(w)
     return w[0]**2 + np.sin(x[0])**2. * w[1]**2.
+
+def to2DVector(x3D,v3D):
+    x2D = to2D(x3D)
+    theta = x2D[0]
+    phi = x2D[1]
+    M = np.array([[np.cos(theta)*np.cos(phi),-np.sin(phi)* np.sin(theta),  np.cos(phi)*np.sin(theta)],
+                  [np.cos(theta)*np.sin(phi), np.sin(theta)* np.cos(phi), np.sin(phi)*np.sin(theta)],
+                  [-1.*np.sin(theta), 0 , np.cos(theta)]])
+    invM = linalg.inv(M)
+    vSpherical = np.matmul(invM, v3D)
+    thetaCoord = vSpherical[0]
+    phiCoord = vSpherical[1]
+    assert abs(vSpherical[2]) < 1e-5, "Watch out, it does not seem to be tangent to the sphere : %f" % abs(vSpherical[2])
+    return np.array([thetaCoord, phiCoord])
+
+def to2D(x):
+    assert len(x)==3, "Not the right dimension of input !"
+    assert(np.linalg.norm(x) -1 )<=1e-4, "Not of norm 1 %f" % (np.linalg.norm(x))
+    phi = np.arctan(x[1]/x[0])
+    if (x[0]<=0):
+        phi += math.pi
+    theta = np.arccos(x[2])#Lies between 0 and pi : ok.
+    return np.array([theta,phi])
 
 def metric(x,v,w):
     return w[0]*v[0] + np.sin(x[0])**2. * w[1]*v[1]
@@ -378,16 +403,27 @@ def parallel_transport_RK1Jacobi(x, alpha, w, number_of_time_steps):
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
 
-x = [math.pi/2+1.5,0.8]
-v = np.array([0.1, 0.3])
+def FitLinear(nb, errors, color):
+    regr = linear_model.LinearRegression(fit_intercept=True)
+    nbForFit = [[elt] for elt in nb[-30:]]
+    errorsForFit = [[elt] for elt in errors[-30:]]
+    regr.fit(nbForFit, errorsForFit)
+    print("regression coefficients :", regr.coef_, regr.intercept_)
+    assert(regr.intercept_ < 1e-1), "Does not seem to converge !"
+    nbForFit = [[elt] for elt in np.linspace(0,0.02,100)]
+    plt.plot(nbForFit, regr.predict(nbForFit), color=color)
+
+x = [math.pi/4,0.]
+v = np.array([2.9616, 1.4810])/2.
+alpha = co_vector_from_vector(x,v)
+print("alpha",alpha)
 vortho = np.array([-v[1], v[0]/np.sin(x[0])**2])
-w=vortho
+w=[alpha[1], -alpha[0]]
 
 v3D = rs.chartVelocityTo3D(x, v)
 x3D = rs.localChartTo3D(x)
 w3D = rs.chartVelocityTo3D(x, w)
 
-alpha = co_vector_from_vector(x,v)
 
 #true end point, end velocity and parallel transport
 x3DFinal = computeGeodesic(x,v,1.)
@@ -399,77 +435,86 @@ print("w3D", w3D)
 print("v3DInitial", v3D, "v3DFinal", v3DFinal)
 print("x3DInitial", x3D, "x3DFinal", x3DFinal)
 print("initial w :", w3D, "pw :", pw3D)
-
-steps = [int(i*200) for i in np.linspace(1,20)]
+steps = [i for i in range(10,200,3)]
+# steps = [int(i) for i in np.linspace(10,100)]
 nb = [1./elt for elt in steps]
 errors = []
 
-# for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport(x, alpha, w, step)
-#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
-#     print("Error RK2 :",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-#
-# plt.scatter(nb, errors, alpha=0.7, color="royalblue", label = "Runge-Kutta 2 ")
-
-errors = []
 for step in steps:
-    xtraj, alphatraj, pwtraj = parallel_transport_RK4(x, alpha, w, step)
+    xtraj, alphatraj, pwtraj = parallel_transport(x, alpha, w, step)
     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
-    print("Error RK4:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
+    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
+    print("Error RK2 :",errors[-1], "Steps :", step)
 
-plt.scatter(nb, errors, alpha=0.7, color="brown", label = "Runge-Kutta 4 ")
-#
+np.save("errorFan",errors)
+
+color="royalblue"
+plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 2 ")
+# FitLinear(nb, errors, color)
+
+# errors = []
+# for step in steps:
+#     xtraj, alphatraj, pwtraj = parallel_transport_RK4(x, alpha, w, step)
+#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
+#     print("Error RK4:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
+# color="brown"
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 4 ")
+# FitLinear(nb, errors, color)
+
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
 #     print("Error RK1:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-#
-# plt.scatter(nb, errors, alpha=0.7, color="green", label = "Runge-Kutta 1")
-#
+color="green"
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 1")
+# FitLinear(nb, errors, color)
+
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
 #     print("Error RK1 geodesic:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-#
-# plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for the main geodesic")
-#
+# color="orange"
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 1 for the main geodesic")
+# FitLinear(nb, errors, color)
+
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1Jacobi(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
 #     print("Error RK1 Jacobi:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
+#color="black"
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 1 for Jacobi")
+# FitLinear(nb, errors, color)
 #
-# plt.scatter(nb, errors, alpha=0.7, color="black", label = "Runge-Kutta 1 for Jacobi")
-#
-
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
 #     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
 #     print("Error RK2 and five-point method:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-#
-# plt.scatter(nb, errors, alpha=0.7, color="peru", label = "Five Point Method and Runge-Kutta 2")
-
-errors = []
-for step in steps:
-    xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x, alpha, w, step)
-    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
-    print("Error RK4 and five point:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-plt.scatter(nb, errors, alpha=0.7, color="yellow", label = "Five Point Method and Runge-Kutta 4")
+# color="peru"
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Five Point Method and Runge-Kutta 2")
+# FitLinear(nb, errors, color)
+# errors = []
+# for step in steps:
+#     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x, alpha, w, step)
+#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+#     print("Error RK4 and five point:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
+# color="green"
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Five Point Method and Runge-Kutta 4")
+# FitLinear(nb, errors, color)
 
 plt.xlabel("1/N")
-plt.legend(loc='upper left')
+plt.legend(loc='upper left', prop={'size':12})
 plt.xlim(xmin=0)
-plt.ylim(ymin=0)
-plt.tight_layout()
+plt.ylim([0,1])
+# plt.tight_layout()
 # plt.savefig("/Users/maxime.louis/Documents/Paper Parallel transport/figures/ErrorsSPD.pdf")
 plt.show()
