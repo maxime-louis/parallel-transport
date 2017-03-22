@@ -9,7 +9,7 @@ from sklearn import datasets, linear_model
 
 #colors : peru, royalblue, brown, green, yellow
 
-def norm(x,w):
+def squaredNorm(x,w):
     # print(w)
     return w[0]**2 + np.sin(x[0])**2. * w[1]**2.
 
@@ -88,35 +88,27 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-    #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
-    #initialisation
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
-    initialNorm = np.sqrt(norm(x,w))
+    initialSquaredNorm = squaredNorm(x,w)
     initialCrossProductWithVelocity = metric(x,v,w)
     RK_Steps = [0.5,1.]
-    # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
         velocity = vector_from_co_vector(xcurr, alphacurr)
-        # print("Scalar product :", metric(xcurr, velocity, pwtraj[k]))
-        # print("w norm :", metric(xcurr, pwtraj[k], pwtraj[k]))
-        #Compute the position of the next point on the geodesic
         for i,step in enumerate(RK_Steps):
             Fx, Falpha = hamiltonian_equation(xcurr, alphacurr)
             xcurr = xtraj[k] + step * delta * Fx
             alphacurr = alphatraj[k] + step * delta * Falpha
-        #Co-vector of w_k : g^{ab} w_b
         betacurr = co_vector_from_vector(xtraj[k], pwtraj[k])
         perturbations = [1,-1]
         Weights = [0.5, -0.5]
         Jacobi = np.zeros(2)
-        #For each perturbation, compute the perturbed geodesic
         for i, pert in enumerate(perturbations):
             alphaPk = alphatraj[k] + pert * epsilon * betacurr
             alphaPerturbed = alphaPk
@@ -125,10 +117,10 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
                 Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed)
                 xPerturbed = xtraj[k] + step * delta * Fx
                 alphaPerturbed = alphaPk + step * delta * Falpha
-            # print(xPerturbed)
-            #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt((initialSquaredNorm/normProp)) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -137,17 +129,14 @@ def parallel_transport_RK4(x, alpha, w, number_of_time_steps):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-    #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
-    #initialisation
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
-    initialNorm = np.sqrt(norm(x,w))
+    initialSquaredNorm = squaredNorm(x,w)
     initialCrossProductWithVelocity = metric(x,v,w)
-    # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
@@ -175,7 +164,9 @@ def parallel_transport_RK4(x, alpha, w, number_of_time_steps):
             xPerturbed = xPerturbed + epsilon/6. * (k1 + 2*k2 + 2*k3 + k4)
             #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -184,30 +175,24 @@ def parallel_transport_order3Jacobi(x, alpha, w, number_of_time_steps):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-    #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
-    #initialisation
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
     RK_Steps = [0.5,1.]
-    # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
+    initialSquaredNorm = squaredNorm(x,w)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
-        #Compute the position of the next point on the geodesic
         for step in RK_Steps:
             Fx, Falpha = hamiltonian_equation(xcurr, alphacurr)
             xcurr = xtraj[k] + step * delta * Fx
             alphacurr = alphatraj[k] + step * delta * Falpha
-
-        #Co-vector of w_k : g^{ab} w_b
         betacurr = co_vector_from_vector(xtraj[k], pwtraj[k])
         perturbations = [-2,-1,1,2]
         xP = []
-        #For each perturbation, compute the perturbed geodesic
         for i, pert in enumerate(perturbations):
             alphaPk = alphatraj[k] + pert * epsilon * betacurr
             alphaPerturbed = alphaPk
@@ -218,7 +203,9 @@ def parallel_transport_order3Jacobi(x, alpha, w, number_of_time_steps):
                 alphaPerturbed = alphaPk + step * delta * Falpha
             xP.append(xPerturbed)
         Jacobi = 1./12.*(xP[0]-8*xP[1]+8*xP[2]-xP[3])
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -227,35 +214,29 @@ def parallel_transport_order3Jacobi_RK4(x, alpha, w, number_of_time_steps, order
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-    #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
-    #initialisation
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
-    initialNorm = np.sqrt(norm(x,w))
+    initialSquaredNorm = squaredNorm(x,w)
     initialCrossProductWithVelocity = metric(x,v,w)
     RK_Steps = np.linspace(1./order,1.,order)
     print(order, RK_Steps)
     time  = 0.
-    # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
-        #Compute the position of the next point on the geodesic
         k1, l1 = hamiltonian_equation(xcurr, alphacurr)
         k2, l2 = hamiltonian_equation(xcurr + epsilon/2. * k1, alphacurr + epsilon/2. * l1)
         k3, l3 = hamiltonian_equation(xcurr + epsilon/2. * k2, alphacurr + epsilon/2. * l2)
         k4, l4 = hamiltonian_equation(xcurr + epsilon * k3, alphacurr + epsilon * l3)
         xcurr = xcurr + epsilon * (k1 + 2*(k2+k3) + k4)/6. # Formula for RK 4
         alphacurr = alphacurr + epsilon * (l1 + 2*(l2+l3) + l4)/6. # Formula for RK 4
-        #Co-vector of w_k : g^{ab} w_b
         betacurr = co_vector_from_vector(xtraj[k], pwtraj[k])
         perturbations = [-2,-1,1,2]
         xP = []
-        #For each perturbation, compute the perturbed geodesic
         for i, pert in enumerate(perturbations):
             alphaPk = alphatraj[k] + pert * epsilon * betacurr
             alphaPerturbed = alphaPk
@@ -267,7 +248,9 @@ def parallel_transport_order3Jacobi_RK4(x, alpha, w, number_of_time_steps, order
             xPerturbed = xPerturbed + epsilon/6. * (k1 + 2*k2 + 2*k3 + k4)
             xP.append(xPerturbed)
         Jacobi = 1./12.*(xP[0]-8*xP[1]+8*xP[2]-xP[3])
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -276,31 +259,25 @@ def parallel_transport_RK1(x, alpha, w, number_of_time_steps, order=2):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-    #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
-    #initialisation
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
-    initialNorm = np.sqrt(norm(x,w))
+    initialSquaredNorm = squaredNorm(x,w)
     initialCrossProductWithVelocity = metric(x,v,w)
     time  = 0.
-    # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
-        #Compute the position of the next point on the geodesic
         Fx, Falpha = hamiltonian_equation(xcurr, alphacurr)
         xcurr = xcurr + delta * Fx
         alphacurr = alphacurr + delta * Falpha
-        #Co-vector of w_k : g^{ab} w_b
         betacurr = co_vector_from_vector(xtraj[k], pwtraj[k])
         perturbations = [1,-1]
         Weights = [0.5, -0.5]
         Jacobi = np.zeros(2)
-        #For each perturbation, compute the perturbed geodesic
         for i, pert in enumerate(perturbations):
             alphaPk = alphatraj[k] + pert * epsilon * betacurr
             alphaPerturbed = alphaPk
@@ -308,9 +285,10 @@ def parallel_transport_RK1(x, alpha, w, number_of_time_steps, order=2):
             Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed)
             xPerturbed = xPerturbed + delta * Fx
             alphaPerturbed = alphaPerturbed + delta  * Falpha
-            #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -319,15 +297,13 @@ def parallel_transport_RK1Geodesic(x, alpha, w, number_of_time_steps):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-    #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
-    #initialisation
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
-    initialNorm = np.sqrt(norm(x,w))
+    initialSquaredNorm = squaredNorm(x,w)
     initialCrossProductWithVelocity = metric(x,v,w)
     RK_Steps = [0.5,1.]
     for k in range(number_of_time_steps):
@@ -336,12 +312,10 @@ def parallel_transport_RK1Geodesic(x, alpha, w, number_of_time_steps):
         Fx, Falpha = hamiltonian_equation(xcurr, alphacurr)
         xcurr = xcurr + Fx * delta
         alphacurr = alphacurr + Falpha * delta
-        #Co-vector of w_k : g^{ab} w_b
         betacurr = co_vector_from_vector(xtraj[k], pwtraj[k])
         perturbations = [1,-1]
         Weights = [0.5, -0.5]
         Jacobi = np.zeros(2)
-        #For each perturbation, compute the perturbed geodesic
         for i, pert in enumerate(perturbations):
             alphaPk = alphatraj[k] + pert * epsilon * betacurr
             alphaPerturbed = alphaPk
@@ -350,9 +324,10 @@ def parallel_transport_RK1Geodesic(x, alpha, w, number_of_time_steps):
                 Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed)
                 xPerturbed = xtraj[k] + step * delta * Fx
                 alphaPerturbed = alphaPk + step * delta * Falpha
-            #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -361,34 +336,28 @@ def parallel_transport_RK1Jacobi(x, alpha, w, number_of_time_steps):
     dimension = len(x) #Dimension of the manifold
     delta = 1./number_of_time_steps
     epsilon = delta
-    #To store the computed values of trajectory and transport
     xtraj = np.zeros((number_of_time_steps+1, dimension))
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
-    #initialisation
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
-    initialNorm = np.sqrt(norm(x,w))
+    initialSquaredNorm = squaredNorm(x,w)
     initialCrossProductWithVelocity = metric(x,v,w)
     RK_Steps = [0.5,1.]
     time  = 0.
-    # print("Lauching computation with epsilon :", epsilon, "delta :", delta, "number_of_time_steps : ", number_of_time_steps)
     for k in range(number_of_time_steps):
         time = time + delta
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
-        #Compute the position of the next point on the geodesic
         for i,step in enumerate(RK_Steps):
             Fx, Falpha = hamiltonian_equation(xcurr, alphacurr)
             xcurr = xtraj[k] + step * delta * Fx
             alphacurr = alphatraj[k] + step * delta * Falpha
-        #Co-vector of w_k : g^{ab} w_b
         betacurr = co_vector_from_vector(xtraj[k], pwtraj[k])
         perturbations = [1,-1]
         Weights = [0.5, -0.5]
         Jacobi = np.zeros(2)
-        #For each perturbation, compute the perturbed geodesic
         for i, pert in enumerate(perturbations):
             alphaPk = alphatraj[k] + pert * epsilon * betacurr
             alphaPerturbed = alphaPk
@@ -396,9 +365,10 @@ def parallel_transport_RK1Jacobi(x, alpha, w, number_of_time_steps):
             Fx, Falpha = hamiltonian_equation(xPerturbed, alphaPerturbed)
             xPerturbed = xPerturbed + delta * Fx
             alphaPerturbed = alphaPerturbed + delta * Falpha
-            #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -414,7 +384,7 @@ def FitLinear(nb, errors, color):
     plt.plot(nbForFit, regr.predict(nbForFit), color=color)
 
 x = [math.pi/4,0.]
-v = np.array([2.9616, 1.4810])/2.
+v = np.array([2.1, 1.4810])/2.
 alpha = co_vector_from_vector(x,v)
 print("alpha",alpha)
 vortho = np.array([-v[1], v[0]/np.sin(x[0])**2])
@@ -435,40 +405,41 @@ print("w3D", w3D)
 print("v3DInitial", v3D, "v3DFinal", v3DFinal)
 print("x3DInitial", x3D, "x3DFinal", x3DFinal)
 print("initial w :", w3D, "pw :", pw3D)
-steps = [i for i in range(10,200,3)]
+steps = [i for i in range(100,300,3)]
 # steps = [int(i) for i in np.linspace(10,100)]
 nb = [1./elt for elt in steps]
-errors = []
-
-for step in steps:
-    xtraj, alphatraj, pwtraj = parallel_transport(x, alpha, w, step)
-    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
-    print("Error RK2 :",errors[-1], "Steps :", step)
-
-np.save("errorFan",errors)
-
-color="royalblue"
-plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 2 ")
-# FitLinear(nb, errors, color)
-
 # errors = []
+#
 # for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_RK4(x, alpha, w, step)
+#     xtraj, alphatraj, pwtraj = parallel_transport(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
 #     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
-#     print("Error RK4:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-# color="brown"
-# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 4 ")
+#     print("Error RK2 :",errors[-1], "Steps :", step)
+#
+# np.save("errorFan",errors)
+#
+# color="royalblue"
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 2 for perturbed geodesics")
+#
 # FitLinear(nb, errors, color)
 
+errors = []
+for step in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_RK4(x, alpha, w, step)
+    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
+    print("Error RK4:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
+color="brown"
+plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 4 for perturbed geodesics")
+FitLinear(nb, errors, color)
+#
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_RK1(x, alpha, w, step)
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
 #     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
 #     print("Error RK1:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-color="green"
+# color="green"
 # plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 1")
 # FitLinear(nb, errors, color)
 
@@ -488,10 +459,10 @@ color="green"
 #     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
 #     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(pw3D))
 #     print("Error RK1 Jacobi:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-#color="black"
+# color="black"
 # plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 1 for Jacobi")
 # FitLinear(nb, errors, color)
-#
+
 # errors = []
 # for step in steps:
 #     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi(x, alpha, w, step)
@@ -499,22 +470,22 @@ color="green"
 #     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
 #     print("Error RK2 and five-point method:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
 # color="peru"
-# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Five Point Method and Runge-Kutta 2")
+# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Third order method for the differentiation of J")
 # FitLinear(nb, errors, color)
-# errors = []
-# for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x, alpha, w, step)
-#     pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
-#     errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
-#     print("Error RK4 and five point:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
-# color="green"
-# plt.scatter(nb, errors, alpha=0.7, color=color, label = "Five Point Method and Runge-Kutta 4")
-# FitLinear(nb, errors, color)
+errors = []
+for step in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x, alpha, w, step)
+    pwtraj3D = rs.chartVelocityTo3D(xtraj[-1], pwtraj[-1])
+    errors.append(np.linalg.norm(pwtraj3D-pw3D)/np.linalg.norm(w))
+    print("Error RK4 and five point:",errors[-1], "Steps :", step, "predicted :", pwtraj3D)
+color="green"
+plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 4 for perturbed geodesics and third order method for J")
+FitLinear(nb, errors, color)
 
 plt.xlabel("1/N")
 plt.legend(loc='upper left', prop={'size':12})
 plt.xlim(xmin=0)
-plt.ylim([0,1])
+# plt.ylim([0,1])
 # plt.tight_layout()
 # plt.savefig("/Users/maxime.louis/Documents/Paper Parallel transport/figures/ErrorsSPD.pdf")
 plt.show()

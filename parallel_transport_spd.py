@@ -174,6 +174,7 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
     alphatraj[0] = alpha
     pwtraj[0] = w
     RK_Steps = [0.5,1.]
+    initialSquaredNorm = metric(x, w, w)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
@@ -207,7 +208,9 @@ def parallel_transport(x, alpha, w, number_of_time_steps):
                 alphaPerturbed = alphaPk + step * delta * Falpha
             #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr
     return xtraj, alphatraj, pwtraj
@@ -293,6 +296,7 @@ def parallel_transport_RK4(x, alpha, w, number_of_time_steps):
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
+    initialSquaredNorm = metric(x, w, w)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
@@ -347,6 +351,7 @@ def parallel_transport_order3Jacobi(x, alpha, w, number_of_time_steps):
     alphatraj[0] = alpha
     pwtraj[0] = w
     RK_Steps = [0.5,1.]
+    initialSquaredNorm = metric(x, w, w)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
@@ -378,7 +383,9 @@ def parallel_transport_order3Jacobi(x, alpha, w, number_of_time_steps):
             xP.append(xPerturbed)
             #Update the estimate
         Jacobi = 1./12.*(xP[0]-8*xP[1]+8*xP[2]-xP[3])
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -392,6 +399,7 @@ def parallel_transport_order3Jacobi_RK4(x, alpha, w, number_of_time_steps):
     pwtraj = np.zeros((number_of_time_steps+1, dimension))
     alphatraj = np.zeros((number_of_time_steps+1, dimension))
     xtraj[0] = x
+    initialSquaredNorm = metric(x, w, w)
     alphatraj[0] = alpha
     pwtraj[0] = w
     for k in range(number_of_time_steps):
@@ -429,7 +437,9 @@ def parallel_transport_order3Jacobi_RK4(x, alpha, w, number_of_time_steps):
             xP.append(xPerturbed)
             #Update the estimate
         Jacobi = 1./12.*(xP[0]-8*xP[1]+8*xP[2]-xP[3])
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -447,6 +457,7 @@ def parallel_transport_RK1(x, alpha, w, number_of_time_steps):
     xtraj[0] = x
     alphatraj[0] = alpha
     pwtraj[0] = w
+    initialSquaredNorm = metric(x, w, w)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
@@ -472,7 +483,9 @@ def parallel_transport_RK1(x, alpha, w, number_of_time_steps):
             xPerturbed = xtraj[k] +  delta * Fx
             #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -492,6 +505,7 @@ def parallel_transport_RK1Geodesic(x, alpha, w, number_of_time_steps):
     alphatraj[0] = alpha
     pwtraj[0] = w
     RK_Steps = [0.5,1.]
+    initialSquaredNorm = metric(x, w, w)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
@@ -520,7 +534,9 @@ def parallel_transport_RK1Geodesic(x, alpha, w, number_of_time_steps):
                 alphaPerturbed = alphaPk + step * delta * Falpha
             #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -540,6 +556,7 @@ def parallel_transport_RK1Jacobi(x, alpha, w, number_of_time_steps):
     alphatraj[0] = alpha
     pwtraj[0] = w
     RK_Steps = [0.5,1.]
+    initialSquaredNorm = metric(x, w, w)
     for k in range(number_of_time_steps):
         xcurr = xtraj[k]
         alphacurr = alphatraj[k]
@@ -567,7 +584,9 @@ def parallel_transport_RK1Jacobi(x, alpha, w, number_of_time_steps):
             alphaPerturbed = alphaPk + step * delta * Falpha
             #Update the estimate
             Jacobi = Jacobi + Weights[i] * xPerturbed
-        pwtraj[k+1] = Jacobi / (epsilon * delta)
+        prop = Jacobi / (epsilon * delta)
+        normProp = metric(xcurr, prop, prop)
+        pwtraj[k+1] = np.sqrt(initialSquaredNorm/normProp) * prop
         xtraj[k+1] = xcurr
         alphatraj[k+1] = alphacurr;
     return xtraj, alphatraj, pwtraj
@@ -582,145 +601,145 @@ def FitLinear(nb, errors, color):
     nbForFit = [[elt] for elt in np.linspace(0,0.005,100)]
     plt.plot(nbForFit, regr.predict(nbForFit), color=color)
 
-# w0 = np.array([[1.,0.2,0],[0.2,1,0],[0,0,0]])
-# x0 = np.eye(3)
-# print "x0", x0
-# v0 = np.array([[1,1,0],[1,0,0],[0,0,0]])/5.
-# orthov0 = np.array([[0,0,0],[0,0,0],[0,0,1]])
-# colors = ['b','g','r','c','k','y']
-# ws  = [orthov0, 5*v0]
+w0 = np.array([[1.,0.2,0],[0.2,1,0],[0,0,0]])
+x0 = np.eye(3)
+print "x0", x0
+v0 = np.array([[1,1,0],[1,0,0],[0,0,0]])/5.
+orthov0 = np.array([[0,0,0],[0,0,0],[0,0,1]])
+colors = ['b','g','r','c','k','y']
+ws  = [orthov0 + v0]#, 5*v0]
 # for i in range(3):
 #     ws.append(generateRandomSymmetric())
 #     print(ws[-1])
-# errrrors = []
-# sps = []
-# for i,w0 in enumerate(ws):
-#     pFinal = trueGeodesic(x0, v0, 1.)
-#     wFinal = trueParallelTransport(x0, v0, w0)
-#     #Get the flat versions
-#     x0Flat, v0Flat, wFlat = flatten(x0), flatten(v0), flatten(w0)
-#     #get the initial momentum
-#     initialMetric = getMetricMatrix(x0Flat)
-#     alpha = co_vector_from_vector(x0Flat, v0Flat, initialMetric)
-#     steps = [int(elt)*6 for elt in np.linspace(3,180,10)]
-#     nb = [1./elt for elt in steps]
-#     errors = []
-#     sp = metric(x0Flat, v0Flat, wFlat)/np.sqrt(metric(x0Flat, wFlat, wFlat)*metric(x0Flat, v0Flat, v0Flat))
-#     sps.append(sp)
-#     print("sp", sp)
-#     for step in steps:
-#         xtraj, alphatraj, pwtraj = parallel_transport(x0Flat, alpha, wFlat, step)
-#         errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#         print "RK2",errors[-1], "Steps", step
-#     errrrors.append(errors)
-# np.save("Data2/RK2traj", xtraj)
-# np.save("Data2/RK2alphatraj", alphatraj)
-# np.save("Data2/RK2pwtraj", pwtraj)
-# np.save("Data2/RK2errors", np.array(errors))
-# np.save("Data2/RK2steps", steps)
+errrrors = []
+sps = []
+for i,w0 in enumerate(ws):
+    pFinal = trueGeodesic(x0, v0, 1.)
+    wFinal = trueParallelTransport(x0, v0, w0)
+    #Get the flat versions
+    x0Flat, v0Flat, wFlat = flatten(x0), flatten(v0), flatten(w0)
+    #get the initial momentum
+    initialMetric = getMetricMatrix(x0Flat)
+    alpha = co_vector_from_vector(x0Flat, v0Flat, initialMetric)
+    steps = [int(elt)*3 for elt in np.linspace(3,180,10)]
+    nb = [1./elt for elt in steps]
+    errors = []
+    sp = metric(x0Flat, v0Flat, wFlat)/np.sqrt(metric(x0Flat, wFlat, wFlat)*metric(x0Flat, v0Flat, v0Flat))
+    sps.append(sp)
+    print("sp", sp)
+    for step in steps:
+        xtraj, alphatraj, pwtraj = parallel_transport(x0Flat, alpha, wFlat, step)
+        errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+        print "RK2",errors[-1], "Steps", step
+    errrrors.append(errors)
+np.save("Data2SingleRenorm/RK2traj", xtraj)
+np.save("Data2SingleRenorm/RK2alphatraj", alphatraj)
+np.save("Data2SingleRenorm/RK2pwtraj", pwtraj)
+np.save("Data2SingleRenorm/RK2errors", np.array(errors))
+np.save("Data2SingleRenorm/RK2steps", steps)
 color="royalblue"
-nb = [1./elt for elt in np.load("Data2/RK2steps.npy")]
-errors = np.load("Data2/RK2errors.npy")
+nb = [1./elt for elt in np.load("Data2SingleRenorm/RK2steps.npy")]
+errors = np.load("Data2SingleRenorm/RK2errors.npy")
 print(errors)
 plt.scatter(nb, errors, alpha=0.4, color=color, label="Runge-Kutta 2")
 FitLinear(nb, errors, color)
-# for i,err in enumerate(errrrors):
-#     plt.scatter(nb, errrrors[i], alpha=0.7, color=colors[i], label = "Runge-Kutta 2 " + str(sps[i])[:5])
+for i,err in enumerate(errrrors):
+    plt.scatter(nb, errrrors[i], alpha=0.7, color=colors[i], label = "Runge-Kutta 2 " + str(sps[i])[:5])
 
-# errors = []
-# for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_RK1(x0Flat, alpha, wFlat, step)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print("RK1",errors[-1])
-# np.save("Data2/RK1traj", xtraj)
-# np.save("Data2/RK1alphatraj", alphatraj)
-# np.save("Data2/RK1pwtraj", pwtraj)
-# np.save("Data2/RK1errors", np.array(errors))
-# np.save("Data2/RK1steps", steps)
-# errors = np.load("Data2/RK1errors.npy")
-# plt.scatter(nb, errors, alpha=0.7, color="green", label = "Runge-Kutta 1")
+errors = []
+for step in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_RK1(x0Flat, alpha, wFlat, step)
+    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+    print("RK1",errors[-1])
+np.save("Data2SingleRenorm/RK1traj", xtraj)
+np.save("Data2SingleRenorm/RK1alphatraj", alphatraj)
+np.save("Data2SingleRenorm/RK1pwtraj", pwtraj)
+np.save("Data2SingleRenorm/RK1errors", np.array(errors))
+np.save("Data2SingleRenorm/RK1steps", steps)
+errors = np.load("Data2SingleRenorm/RK1errors.npy")
+plt.scatter(nb, errors, alpha=0.7, color="green", label = "Runge-Kutta 1")
 
-# errors = []
-# for step in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_RK4(x0Flat, alpha, wFlat, step)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print "RK4", errors[-1]
-# np.save("Data2/RK4traj", xtraj)
-# np.save("Data2/RK4alphatraj", alphatraj)
-# np.save("Data2/RK4pwtraj", pwtraj)
-# np.save("Data2/RK4errors", np.array(errors))
-# np.save("Data2/RK4steps", steps)
+errors = []
+for step in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_RK4(x0Flat, alpha, wFlat, step)
+    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+    print "RK4", errors[-1]
+np.save("Data2SingleRenorm/RK4traj", xtraj)
+np.save("Data2SingleRenorm/RK4alphatraj", alphatraj)
+np.save("Data2SingleRenorm/RK4pwtraj", pwtraj)
+np.save("Data2SingleRenorm/RK4errors", np.array(errors))
+np.save("Data2SingleRenorm/RK4steps", steps)
 color="brown"
-errors = np.load("Data2/RK4errors.npy")
+errors = np.load("Data2SingleRenorm/RK4errors.npy")
 plt.scatter(nb, errors, alpha=0.7, color=color, label = "Runge-Kutta 4")
 FitLinear(nb, errors, color)
-# errors = []
-# for nbSteps in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi(x0Flat, alpha, wFlat, nbSteps)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print "five point method", errors[-1]
-# np.save("Data2/order3RK2traj", xtraj)
-# np.save("Data2/order3RK2alphatraj", alphatraj)
-# np.save("Data2/order3RK2pwtraj", pwtraj)
-# np.save("Data2/order3RK2errors", np.array(errors))
-# np.save("Data2/order3RK2steps", steps)
+errors = []
+for nbSteps in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi(x0Flat, alpha, wFlat, nbSteps)
+    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+    print "five point method", errors[-1]
+np.save("Data2SingleRenorm/order3RK2traj", xtraj)
+np.save("Data2SingleRenorm/order3RK2alphatraj", alphatraj)
+np.save("Data2SingleRenorm/order3RK2pwtraj", pwtraj)
+np.save("Data2SingleRenorm/order3RK2errors", np.array(errors))
+np.save("Data2SingleRenorm/order3RK2steps", steps)
 color="peru"
-errors = np.load("Data2/order3RK2errors.npy")
+errors = np.load("Data2SingleRenorm/order3RK2errors.npy")
 plt.scatter(nb, errors, alpha=0.7, color=color, label = "Five Point Method and Runge-Kutta 2")
 FitLinear(nb, errors, color)
 
-# errors = []
-# for nbSteps in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x0Flat, alpha, wFlat, nbSteps)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print "RK4 with 5 points : ", errors[-1]
-# np.save("Data2/order3RK4traj", xtraj)
-# np.save("Data2/order3RK4alphatraj", alphatraj)
-# np.save("Data2/order3RK4pwtraj", pwtraj)
-# np.save("Data2/order3RK4errors", np.array(errors))
-# np.save("Data2/order3RK4steps", steps)
+errors = []
+for nbSteps in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_order3Jacobi_RK4(x0Flat, alpha, wFlat, nbSteps)
+    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+    print "RK4 with 5 points : ", errors[-1]
+np.save("Data2SingleRenorm/order3RK4traj", xtraj)
+np.save("Data2SingleRenorm/order3RK4alphatraj", alphatraj)
+np.save("Data2SingleRenorm/order3RK4pwtraj", pwtraj)
+np.save("Data2SingleRenorm/order3RK4errors", np.array(errors))
+np.save("Data2SingleRenorm/order3RK4steps", steps)
 color="green"
-errors = np.load("Data2/order3RK4errors.npy")
+errors = np.load("Data2SingleRenorm/order3RK4errors.npy")
 plt.scatter(nb, errors, alpha=0.7, color="green", label = "Five Point Method and Runge-Kutta 4")
 FitLinear(nb, errors, color)
-# errors = []
-# for nbSteps in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x0Flat, alpha, wFlat, nbSteps)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print "RK1 for the geodesic only : ", errors[-1]
-# np.save("Data2/RK1Geodesictraj", xtraj)
-# np.save("Data2/RK1Geodesicalphatraj", alphatraj)
-# np.save("Data2/RK1Geodesicpwtraj", pwtraj)
-# np.save("Data2/RK1Geodesicerrors", np.array(errors))
-# np.save("Data2/RK1Geodesicsteps", steps)
-# errors = np.load("Data2/RK1Geodesicerrors.npy")
-# plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for the main geodesic")
+errors = []
+for nbSteps in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_RK1Geodesic(x0Flat, alpha, wFlat, nbSteps)
+    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+    print "RK1 for the geodesic only : ", errors[-1]
+np.save("Data2SingleRenorm/RK1Geodesictraj", xtraj)
+np.save("Data2SingleRenorm/RK1Geodesicalphatraj", alphatraj)
+np.save("Data2SingleRenorm/RK1Geodesicpwtraj", pwtraj)
+np.save("Data2SingleRenorm/RK1Geodesicerrors", np.array(errors))
+np.save("Data2SingleRenorm/RK1Geodesicsteps", steps)
+errors = np.load("Data2SingleRenorm/RK1Geodesicerrors.npy")
+plt.scatter(nb, errors, alpha=0.7, color="orange", label = "Runge-Kutta 1 for the main geodesic")
 
-# errors = []
-# for nbSteps in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_RK1Jacobi(x0Flat, alpha, wFlat, nbSteps)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print "RK1 for jacobi only : ", errors[-1]
-# np.save("Data2/RK1jacobitraj", xtraj)
-# np.save("Data2/RK1jacobialphatraj", alphatraj)
-# np.save("Data2/RK1jacobipwtraj", pwtraj)
-# np.save("Data2/RK1jacobierrors", np.array(errors))
-# np.save("Data2/RK1jacobisteps", steps)
-# errors = np.load("Data2/RK1jacobierrors.npy")
-# plt.scatter(nb, errors, alpha=0.7, color="yellow", label = "RK1 jacobi")
-#
-# errors = []
-# for nbSteps in steps:
-#     xtraj, alphatraj, pwtraj = parallel_transport_conservation(x0Flat, alpha, wFlat, nbSteps)
-#     errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
-#     print "Conservation : ", errors[-1], "\n"
-# np.save("Data2/Conservationxtraj", xtraj)
-# np.save("Data2/Conservationalphatraj", alphatraj)
-# np.save("Data2/Conservationpwtraj", pwtraj)
-# np.save("Data2/Conservationerrors", np.array(errors))
-# np.save("Data2/Conservationsteps", steps)
+errors = []
+for nbSteps in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_RK1Jacobi(x0Flat, alpha, wFlat, nbSteps)
+    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+    print "RK1 for jacobi only : ", errors[-1]
+np.save("Data2SingleRenorm/RK1jacobitraj", xtraj)
+np.save("Data2SingleRenorm/RK1jacobialphatraj", alphatraj)
+np.save("Data2SingleRenorm/RK1jacobipwtraj", pwtraj)
+np.save("Data2SingleRenorm/RK1jacobierrors", np.array(errors))
+np.save("Data2SingleRenorm/RK1jacobisteps", steps)
+errors = np.load("Data2SingleRenorm/RK1jacobierrors.npy")
+plt.scatter(nb, errors, alpha=0.7, color="yellow", label = "RK1 jacobi")
+
+errors = []
+for nbSteps in steps:
+    xtraj, alphatraj, pwtraj = parallel_transport_conservation(x0Flat, alpha, wFlat, nbSteps)
+    errors.append(np.linalg.norm(wFinal - reconstruct(pwtraj[-1]))/np.linalg.norm(w0))
+    print "Conservation : ", errors[-1], "\n"
+np.save("Data2SingleRenorm/Conservationxtraj", xtraj)
+np.save("Data2SingleRenorm/Conservationalphatraj", alphatraj)
+np.save("Data2SingleRenorm/Conservationpwtraj", pwtraj)
+np.save("Data2SingleRenorm/Conservationerrors", np.array(errors))
+np.save("Data2SingleRenorm/Conservationsteps", steps)
 color="red"
-errors = np.load("Data2/Conservationerrors.npy")
+errors = np.load("Data2SingleRenorm/Conservationerrors.npy")
 plt.scatter(nb, errors, alpha=0.7, color=color, label = "Enforcing conservations")
 FitLinear(nb, errors, color)
 plt.xlabel("1/N")
