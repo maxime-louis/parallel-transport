@@ -178,6 +178,7 @@ def SchildsLadder(x,v,w,number_of_time_steps, verbose = False, factor = 1.):
         xtraj[i] = computeGeodesic(x3D, v3D, delta * i)
     pwtraj[0] = w
     time  = 0.
+    initialNorm = np.sqrt(metric(x, w, w))
     for k in range(number_of_time_steps):
         # Get P0, P1
         P03D = xtraj[k]
@@ -202,7 +203,9 @@ def SchildsLadder(x,v,w,number_of_time_steps, verbose = False, factor = 1.):
         P43D = localChartTo3D(P4)
         #wk+1 is the riemannian logarithm of the geodesic connecting P1 to P4.
         v = getDistanceAndLog(P1, P4, P13D, P43D, verbose = verbose)
-        pwtraj[k+1] = v/delta
+        prop = v/delta
+        currNorm = np.sqrt(metric(to2D(xtraj[k+1]), prop, prop))
+        pwtraj[k+1] = initialNorm/currNorm *prop
     return xtraj, pwtraj
 
 def GetErrors():
@@ -216,7 +219,8 @@ def GetErrors():
     v = np.array([2.9616, 1.4810])/2.
     alpha = [ 1.4808 ,  0.37025]
     vortho = np.array([-v[1], v[0]/np.sin(x[0])**2])
-    w=[alpha[1], -alpha[0]]
+    # w=[alpha[1], -alpha[0]]
+    w = v + vortho
     #3D equivalents
     x3D = localChartTo3D(x)
     v3D = chartVelocityTo3D(x, v)
